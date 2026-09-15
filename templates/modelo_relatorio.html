@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8"><title>Modelo — {{ nome_tipo }}</title>
+<style>
+  body{font-family:Arial;font-size:12px;margin:24px}
+  h1{font-size:16px} h2{font-size:13px;color:#0a58ca;margin-top:16px}
+  table{width:100%;border-collapse:collapse} td{border:1px solid #999;padding:4px 6px}
+  .no-print{margin:12px 0} @media print{.no-print{display:none}}
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.print()" style="padding:8px 16px">🖨️ Imprimir / Salvar como PDF</button>
+  <span class="small">— compartilhe este link com os equipamentos (eles verão apenas o modelo do próprio tipo).</span>
+</div>
+<h1>MODELO DE RELATÓRIO MENSAL — {{ nome_tipo }}</h1>
+<p>Secretaria Municipal de Assistência e Desenvolvimento Social — Araraquara/SP</p>
+<p>Mês/Ano de referência: ____ / ________</p>
+{% for secao, lista in secoes %}
+<h2>{{ secao }}</h2>
+<table>{% for chave, rotulo in lista %}<tr><td style="width:80%">{{ rotulo }}</td><td></td></tr>{% endfor %}</table>
+{% endfor %}
+<br><p>_____________________________________<br>Responsável pela unidade</p>
+</body>
+</html>

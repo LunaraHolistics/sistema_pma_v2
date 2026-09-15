@@ -1,0 +1,27 @@
+# ===== Python / ambiente =====
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ===== Segredos e configurações locais (NUNCA subir) =====
+config_local.py
+skills-lock.json
+
+# ===== Bancos e backups (contêm dados reais) =====
+*.db
+*.db.bak
+*.sqlite
+*.sqlite3
+upload_temp.db
+backup_temp.db
+
+# ===== Dados pessoais e arquivos de trabalho =====
+dados_importacao/
+relatorio_importacao.txt
+
+# ===== Sistema / editor =====
+Thumbs.db
+Desktop.ini
+.vscode/

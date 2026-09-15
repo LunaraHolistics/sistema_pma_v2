@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="card mb-3"><div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-2">
+  <h5 class="mb-0">🏠 {{ un.nome if un else 'Sem unidade vinculada' }}
+    {% if un %}<span class="badge bg-secondary">{{ un.tipo }}</span>{% endif %}</h5>
+  {% if unids and unids|length > 1 %}
+  <div>
+    <span class="small fw-bold">Unidade:</span>
+    {% for u in unids %}
+    <a class="btn btn-sm {% if u.id == un.id %}btn-primary{% else %}btn-outline-primary{% endif %}"
+       href="/painel/unidade/{{ u.id }}">{{ u.nome }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if un %}
+  <form class="d-flex gap-2" action="/painel/editar" method="GET">
+    <select name="mes" class="form-select form-select-sm" style="width:auto">
+      {% for m in range(1,13) %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+    </select>
+    <input name="ano" type="number" value="2026" class="form-control form-control-sm" style="width:90px">
+    <button class="btn btn-sm btn-primary">✏️ Preencher/Editar mês</button>
+  </form>
+  {% endif %}
+</div></div>
+
+{% if not un %}
+<div class="alert alert-warning">Sua conta ainda não possui unidade vinculada. Fale com a gestora.</div>
+{% else %}
+<div class="card"><div class="card-body">
+  <h6>Relatórios enviados — {{ un.nome }}</h6>
+  <table class="table table-sm table-striped small">
+    <thead><tr><th>Mês/Ano</th><th>Ações</th></tr></thead>
+    <tbody>
+    {% for r in regs %}
+      <tr><td>{{ r.mes }}/{{ r.ano }}</td>
+        <td>
+          <a class="btn btn-sm btn-outline-primary" href="/painel/editar?mes={{ r.mes }}&ano={{ r.ano }}">✏️ Editar</a>
+          <a class="btn btn-sm btn-outline-secondary" target="_blank" href="/imprimir?mes={{ r.mes }}&ano={{ r.ano }}">🖨️ Imprimir / Salvar PDF</a>
+        </td></tr>
+    {% else %}<tr><td colspan="2" class="text-muted">Nenhum relatório ainda — use "Preencher/Editar mês".</td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+{% endblock %}

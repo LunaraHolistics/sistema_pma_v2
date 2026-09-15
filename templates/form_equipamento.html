@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block content %}
+<h5>✏️ {{ un.nome }} — {{ mes }}/{{ ano }}</h5>
+<form method="POST" class="mb-4">
+  <input type="hidden" name="mes" value="{{ mes }}"><input type="hidden" name="ano" value="{{ ano }}">
+  {% for secao, lista in secoes %}
+  <div class="card mt-3"><div class="card-body">
+    <h6 class="text-primary">{{ secao }}</h6>
+    <div class="row g-2">
+      {% for chave, rotulo in lista %}
+      <div class="col-md-4">
+        <label class="small">{{ rotulo }}</label>
+        <input type="number" step="any" name="{{ chave }}" class="form-control form-control-sm"
+               value="{{ dados.get(chave) if dados.get(chave) is not none else '' }}">
+      </div>
+      {% endfor %}
+    </div>
+  </div></div>
+  {% endfor %}
+  <div class="d-flex gap-2 mt-3">
+    <button class="btn btn-success">💾 Salvar</button>
+    <a class="btn btn-secondary" href="/painel">Cancelar</a>
+  </div>
+</form>
+{% endblock %}

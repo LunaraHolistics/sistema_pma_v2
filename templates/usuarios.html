@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block content %}
+<h5>👥 Usuários e Vínculos</h5>
+<p class="text-muted small">Somente os e-mails desta lista entram no sistema, cada um travado na sua unidade.
+Aqui você pode criar usuários novos, vincular/desvincular unidades.</p>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>➕ Novo usuário</h6>
+  <form method="POST" class="row g-2">
+    <input type="hidden" name="acao" value="novo">
+    <div class="col-md-4"><input class="form-control form-control-sm" name="email" placeholder="e-mail@araraquara.sp.gov.br" required></div>
+    <div class="col-md-2">
+      <select name="papel" class="form-select form-select-sm">
+        <option value="equipamento">equipamento</option><option value="gestora">gestora</option>
+      </select></div>
+    <div class="col-md-4">
+      <select name="unidade_id" class="form-select form-select-sm">
+        <option value="">— sem unidade —</option>
+        {% for u in unidades %}<option value="{{ u.id }}">{{ u.nome }}</option>{% endfor %}
+      </select></div>
+    <div class="col-auto"><button class="btn btn-sm btn-success">Criar</button></div>
+  </form>
+  <small class="text-muted">Senha padrão: Pma@123</small>
+</div></div>
+
+<div class="card mb-3"><div class="card-body">
+  <h6>Usuários</h6>
+  <table class="table table-sm table-striped small">
+    <thead><tr><th>E-mail</th><th>Papel</th><th>Origem</th><th>Unidades vinculadas</th><th style="width:220px">Vincular outra</th><th style="width:70px"></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td>{{ r.email }}</td>
+        <td>{% if r.papel == 'gestora' %}👑 gestora{% else %}🏢 equipamento{% endif %}</td>
+        <td>{{ r.origem or '—' }}</td>
+        <td>{{ r.unidades or '—' }}</td>
+        <td>
+          <form method="POST" class="d-flex gap-1">
+            <input type="hidden" name="acao" value="vincular">
+            <input type="hidden" name="user_id" value="{{ r.id }}">
+            <select name="unidade_id" class="form-select form-select-sm">
+              {% for u in unidades %}<option value="{{ u.id }}">{{ u.nome }}</option>{% endfor %}
+            </select>
+            <button class="btn btn-sm btn-outline-primary">＋</button>
+          </form>
+        </td>
+        <td>
+          {% if r.origem == 'gestora' and r.papel == 'equipamento' %}
+          <form method="POST"><input type="hidden" name="acao" value="remover"><input type="hidden" name="user_id" value="{{ r.id }}">
+            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover este usuário?')">🗑️</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="card mb-4"><div class="card-body">
+  <h6>Vínculos atuais (clique ✕ para desvincular)</h6>
+  <table class="table table-sm small">
+    <thead><tr><th>E-mail</th><th>Unidade</th><th style="width:60px"></th></tr></thead>
+    <tbody>
+    {% for l in links %}
+      <tr><td>{{ l.email }}</td><td>{{ l.nome }}</td>
+        <td><form method="POST"><input type="hidden" name="acao" value="desvincular"><input type="hidden" name="link_id" value="{{ l.id }}">
+          <button class="btn btn-sm btn-outline-danger py-0">✕</button></form></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endblock %}

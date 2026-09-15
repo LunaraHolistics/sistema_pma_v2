@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Relatório {{ un.nome }} {{ mes }}/{{ ano }}</title>
+<style>
+  body{font-family:Arial;font-size:12px;margin:24px}
+  h1{font-size:16px} h2{font-size:13px;margin-top:18px;color:#0a58ca}
+  table{width:100%;border-collapse:collapse} td,th{border:1px solid #999;padding:4px 6px;text-align:left}
+  .no-print{margin:12px 0} @media print{.no-print{display:none}}
+</style>
+</head>
+<body>
+<div class="no-print">
+  <button onclick="window.print()" style="padding:8px 16px">🖨️ Imprimir / Salvar como PDF</button>
+  <a href="javascript:history.back()">← Voltar</a>
+</div>
+<h1>RELATÓRIO MENSAL — {{ un.nome }} ({{ un.tipo }}) · {{ mes }}/{{ ano }}</h1>
+<p>Secretaria Municipal de Assistência e Desenvolvimento Social — Araraquara/SP</p>
+{% for secao, lista in secoes %}
+<h2>{{ secao }}</h2>
+<table>
+  {% for chave, rotulo in lista %}
+  <tr><td style="width:75%">{{ rotulo }}</td><td><b>{{ dados.get(chave) if dados.get(chave) is not none else '—' }}</b></td></tr>
+  {% endfor %}
+</table>
+{% endfor %}
+{% if extras %}
+<h2>Outros dados registrados</h2>
+<table>{% for k, v in extras %}<tr><td style="width:75%">{{ k }}</td><td><b>{{ v }}</b></td></tr>{% endfor %}</table>
+{% endif %}
+<br><br>
+<p>_____________________________________<br>Responsável pela unidade</p>
+</body>
+</html>

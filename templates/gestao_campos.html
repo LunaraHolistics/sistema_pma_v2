@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+<h5>🛠️ Gestão de Campos do Formulário</h5>
+
+<div class="mb-3 d-flex align-items-end gap-2 flex-wrap">
+  <div>
+    <label class="small fw-bold">Tipo de relatório</label>
+    <select class="form-select form-select-sm" onchange="location.search='?tipo='+this.value">
+      {% for id, nome in tipos_lista %}
+      <option value="{{ id }}" {% if id == tipo %}selected{% endif %}>{{ nome }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <a class="btn btn-sm btn-outline-secondary" target="_blank" href="/modelo?tipo={{ tipo }}">📄 Ver / compartilhar modelo em branco</a>
+</div>
+
+<form method="POST" action="/gestao/campos" class="row g-2 mb-3">
+  <input type="hidden" name="tipo" value="{{ tipo }}"><input type="hidden" name="acao" value="novo">
+  <div class="col-md-4"><input class="form-control form-control-sm" name="rotulo" placeholder="Rótulo do novo campo" required></div>
+  <div class="col-md-3"><input class="form-control form-control-sm" name="secao" placeholder="Seção (opcional)"></div>
+  <div class="col-auto"><button class="btn btn-sm btn-success">➕ Adicionar campo</button></div>
+</form>
+
+<form method="POST" action="/gestao/campos">
+  <input type="hidden" name="tipo" value="{{ tipo }}"><input type="hidden" name="acao" value="atualizar">
+  <table class="table table-sm table-striped small">
+    <thead><tr><th style="width:60px">Ativo</th><th>Campo</th><th>Seção</th><th style="width:170px">Vigente a partir de</th><th style="width:70px">Origem</th><th style="width:60px"></th></tr></thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td><input type="checkbox" name="ativo_{{ r.id }}" {% if r.ativo %}checked{% endif %}></td>
+        <td>{{ r.rotulo }}</td>
+        <td>{{ r.secao }}</td>
+        <td>
+          <div class="d-flex gap-1">
+            <input type="hidden" name="linha" value="{{ r.id }}">
+            <select name="vm_{{ r.id }}" class="form-select form-select-sm">
+              <option value=""></option>
+              {% for m in range(1,13) %}<option value="{{ m }}" {% if r.vigente_mes == m %}selected{% endif %}>{{ m }}</option>{% endfor %}
+            </select>
+            <input type="number" name="va_{{ r.id }}" class="form-control form-control-sm" placeholder="ano" value="{{ r.vigente_ano or '' }}">
+          </div>
+        </td>
+        <td>{{ r.origem }}</td>
+        <td>
+          {% if r.origem == 'gestora' %}
+          <button type="button" class="btn btn-sm btn-outline-danger py-0 btn-excluir" data-id="{{ r.id }}">🗑️</button>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <button class="btn btn-primary">💾 Salvar alterações</button>
+</form>
+
+<form id="formExcluir" method="POST" action="/gestao/campos" style="display:none">
+  <input type="hidden" name="tipo" value="{{ tipo }}">
+  <input type="hidden" name="acao" value="excluir">
+  <input type="hidden" name="id" id="ex_id">
+</form>
+
+<script>
+// JavaScript PURO (sem Jinja neste bloco)
+document.querySelectorAll('.btn-excluir').forEach(function (b) {
+  b.addEventListener('click', function () {
+    if (confirm('Excluir este campo?')) {
+      document.getElementById('ex_id').value = b.dataset.id;
+      document.getElementById('formExcluir').submit();
+    }
+  });
+});
+</script>
+{% endblock %}

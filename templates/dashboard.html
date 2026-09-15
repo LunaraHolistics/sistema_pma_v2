@@ -1,0 +1,342 @@
+{% extends "base.html" %}
+{% block content %}
+<script id="unidades-json" type="application/json">{{ unidades_json|safe }}</script>
+
+<style>
+  .caixa-grafico { height: 320px; position: relative; }
+  .print-only { display: none; }
+  @media print {
+    nav, .no-print, .nav-tabs { display: none !important; }
+    .print-only { display: block !important; }
+    #tab-analise .col-md-3 { display: none !important; }
+    .caixa-grafico { height: 260px; }
+    .card { box-shadow: none !important; }
+  }
+</style>
+
+<div class="print-only">
+  <h5>Secretaria Municipal de Assistência e Desenvolvimento Social — Araraquara/SP</h5>
+  <p class="small mb-2">Dashboard gerado em <span id="print-data"></span> por {{ session['user'] }}</p>
+</div>
+
+<ul class="nav nav-tabs mb-3 no-print" id="abasDashboard">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-visao" type="button">📊 Visão Geral</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-analise" type="button">🎯 Análise com Filtros</button></li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- ================= ABAs: VISÃO GERAL ================= -->
+  <div class="tab-pane fade show active" id="tab-visao">
+    <div class="card mb-3 no-print"><div class="card-body py-2">
+      <div class="row g-2 align-items-end">
+        <div class="col-md-2"><label class="small fw-bold">Tipo</label>
+          <select id="vis-tipo" class="form-select form-select-sm">
+            <option value="cras">CRAS (Proteção Básica)</option>
+            <option value="acolhida">Casa de Acolhida</option>
+            <option value="centro_pop">Centro Pop</option>
+            <option value="centro_dia_idoso">Centro Dia do Idoso</option>
+            <option value="residencia_inclusiva">Residência Inclusiva</option>
+            <option value="republica_idosos">República Idosos</option>
+            <option value="promaip">PROMAIP</option>
+          </select></div>
+        <div class="col-md-1"><label class="small">Mês ini</label><select id="vis-mi" class="form-select form-select-sm"></select></div>
+        <div class="col-md-1"><label class="small">Ano</label><input id="vis-ai" type="number" value="2026" class="form-control form-control-sm"></div>
+        <div class="col-md-1"><label class="small">Mês fim</label><select id="vis-mf" class="form-select form-select-sm"></select></div>
+        <div class="col-md-1"><label class="small">Ano</label><input id="vis-af" type="number" value="2026" class="form-control form-control-sm"></div>
+        <div class="col-md-6 d-flex gap-2">
+          <button class="btn btn-sm btn-primary" id="btn-vis-atualizar">🔄 Atualizar</button>
+          <button class="btn btn-sm btn-secondary" onclick="window.print()">🖨️ Exportar PDF</button>
+          <button class="btn btn-sm btn-success" id="btn-vis-excel">📥 Excel</button>
+        </div>
+      </div>
+    </div></div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-7"><div class="card"><div class="card-body">
+        <h6 id="vis-titulo-linha">Evolução mensal (todas as unidades)</h6>
+        <div class="caixa-grafico"><canvas id="gVisLinha"></canvas></div>
+      </div></div></div>
+      <div class="col-md-5"><div class="card"><div class="card-body">
+        <h6 id="vis-titulo-barra">Comparativo entre unidades</h6>
+        <div class="caixa-grafico"><canvas id="gVisBarra"></canvas></div>
+      </div></div></div>
+    </div>
+
+    <div class="card mb-3"><div class="card-body">
+      <h6>✅ Status de preenchimento do período</h6>
+      <div id="statusVisao" class="table-responsive"></div>
+    </div></div>
+
+    <div class="card mb-4"><div class="card-body">
+      <h6>📋 Detalhamento</h6>
+      <div id="tabelaVisao" class="table-responsive" style="max-height:420px;overflow:auto"></div>
+    </div></div>
+  </div>
+
+  <!-- ================= ABA: ANÁLISE COM FILTROS ================= -->
+  <div class="tab-pane fade" id="tab-analise">
+    <div class="row">
+      <div class="col-md-3 no-print">
+        <div class="card mb-3"><div class="card-body">
+          <h6>🔍 Filtros</h6>
+          <label class="small fw-bold">Tipo de relatório</label>
+          <select id="sel-tipo" class="form-select form-select-sm mb-2" >
+            <option value="cras">CRAS (Proteção Básica)</option>
+            <option value="acolhida">Casa de Acolhida</option>
+            <option value="centro_pop">Centro Pop</option>
+            <option value="centro_dia_idoso">Centro Dia do Idoso</option>
+            <option value="residencia_inclusiva">Residência Inclusiva</option>
+            <option value="republica_idosos">República Idosos</option>
+            <option value="promaip">PROMAIP</option>
+          </select>
+          <div class="row g-2 mb-2">
+            <div class="col-6"><label class="small">Mês ini</label><select id="sel-mi" class="form-select form-select-sm"></select>
+              <input id="sel-ai" type="number" value="2026" class="form-control form-control-sm mt-1"></div>
+            <div class="col-6"><label class="small">Mês fim</label><select id="sel-mf" class="form-select form-select-sm"></select>
+              <input id="sel-af" type="number" value="2026" class="form-control form-control-sm mt-1"></div>
+          </div>
+          <label class="small fw-bold">Unidades</label>
+          <div class="mb-1">
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="btn-todas-basica">Todas da Básica</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="btn-todas-especial">Todas da Especial</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary py-0" id="btn-limpar-unidades">Limpar</button>
+          </div>
+          <div id="container-unidades" class="border rounded p-2 mb-2" style="max-height:180px;overflow-y:auto;background:#f8f9fa"></div>
+          <label class="small fw-bold">Tipo de gráfico</label>
+          <select id="sel-grafico" class="form-select form-select-sm mb-2">
+            <option value="line">📈 Linha (evolução)</option>
+            <option value="bar">📊 Barras (comparação)</option>
+            <option value="pie">🥧 Pizza (distribuição)</option>
+          </select>
+          <label class="small fw-bold">Indicadores</label>
+          <input id="busca-campo" class="form-control form-control-sm mb-1" placeholder="Buscar indicador...">
+          <div id="container-campos" class="border rounded p-2 mb-2" style="max-height:240px;overflow-y:auto;background:#f8f9fa"></div>
+          <button id="btn-gerar" class="btn btn-primary w-100 mb-2">🚀 Gerar gráficos</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-secondary w-100" onclick="window.print()">🖨️ PDF</button>
+            <button class="btn btn-sm btn-success w-100" id="btn-excel">📥 Excel</button>
+          </div>
+          {% if gestora %}
+          <hr>
+          <label class="small fw-bold">Filtros salvos</label>
+          <div id="container-filtros">
+            {% for f in filtros %}
+            <button class="btn btn-sm btn-outline-info w-100 mb-1 text-start btn-filtro-salvo" data-params="{{ f.parametros }}">📌 {{ f.nome_filtro }}</button>
+            {% else %}<span class="text-muted small">Nenhum ainda.</span>{% endfor %}
+          </div>
+          <button class="btn btn-sm btn-outline-primary w-100 mt-1" id="btn-salvar">💾 Salvar filtro atual</button>
+          {% endif %}
+        </div></div>
+      </div>
+
+      <div class="col-md-9">
+        <div id="area-graficos" class="row mb-3"></div>
+        <div class="card mb-3"><div class="card-body">
+          <h6>✅ Status de preenchimento do período</h6>
+          <div id="statusAnalise" class="table-responsive"></div>
+        </div></div>
+        <div class="card mb-4"><div class="card-body">
+          <h6>📋 Detalhamento</h6>
+          <div id="tabelaAnalise" class="table-responsive" style="max-height:420px;overflow:auto"></div>
+        </div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+// ================= JavaScript PURO =================
+const UNIDADES = JSON.parse(document.getElementById('unidades-json').textContent);
+const MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
+const el = id => document.getElementById(id);
+let ROT = {}, marcadas = new Set(), graficos = {}, ultimaQuery = '';
+
+const DEFAULT_CHAVES = {
+  cras: ["fam_cadastradas_novas","total_atendimentos_unidade","benef_cesta_basica","busca_ativa"],
+  acolhida: ["total_atendimentos_mes","total_pernoites","total_refeicoes","total_passagens"],
+  centro_pop: ["total_atendimentos_mes","total_refeicoes","total_passagens","pessoas_rua_atendidas"],
+  centro_dia_idoso: ["total_idosos_atendimento","refeicoes_fornecidas","atd_part_familias","visitas_domiciliares"],
+  residencia_inclusiva: ["total_acolhidas","novos_abrigamentos_mes","atendimentos_familia","visitas_domiciliares"],
+  republica_idosos: ["total_idosos_residentes","atd_particularizado_idosos","idosos_lista_espera","capacidade_total_moradias"],
+  promaip: ["acolhimento_total","visitas_domiciliares","relatorios_elaborados","familia_nuclear"]
+};
+
+function COR(i, a){ return 'hsla(' + ((i*47)%360) + ',70%,45%,' + (a==null?1:a) + ')'; }
+
+// ---- LEGENDA COM VALOR (linha, barra e pizza) ----
+function legendaComValores(chart){
+  const base = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+  return base.map(function(l){
+    const ds = chart.data.datasets[l.datasetIndex];
+    if (chart.config.type === 'pie') {
+      l.text = chart.data.labels[l.index] + ': ' + (ds.data[l.index] ?? 0);
+    } else {
+      const total = (ds.data || []).reduce((a,b)=>a+(Number(b)||0),0);
+      l.text = ds.label + ' — Σ ' + total;
+    }
+    return l;
+  });
+}
+function optGrafico(){ return { responsive:true, maintainAspectRatio:false,
+  plugins:{ legend:{ position:'bottom', labels:{ font:{size:10}, generateLabels: legendaComValores } } },
+  scales:{ y:{ beginAtZero:true } } }; }
+
+function destruirGraficos(){ Object.values(graficos).forEach(c=>c.destroy()); graficos = {}; }
+function nomesDoTipo(t){ return new Set(UNIDADES.filter(u=>u.tipo===t).map(u=>u.nome)); }
+
+function renderStatus(container, d, nomes){
+  let h = '<table class="table table-sm small"><thead><tr><th>Unidade</th>' +
+    d.periodo.map(p=>'<th>'+p+'</th>').join('') + '</tr></thead><tbody>';
+  UNIDADES.filter(u=>nomes.has(u.nome)).forEach(u=>{
+    h += '<tr><td>'+u.nome+'</td>' + d.periodo.map(p=>'<td>'+(((d.status[u.nome])||[]).includes(p)?'✅':'❌')+'</td>').join('') + '</tr>';
+  });
+  container.innerHTML = h + '</tbody></table>';
+}
+function renderTabela(container, d, chaves, nomes){
+  const linhas = d.detalhes.filter(l=>nomes.has(l.unidade) && chaves.some(c=>(l[c]||0)!==0));
+  if (!linhas.length){ container.innerHTML = '<span class="text-muted small">Sem dados para o filtro.</span>'; return; }
+  let h = '<table class="table table-sm table-striped small"><thead><tr><th>Unidade</th><th>Mês</th>' +
+    chaves.map(c=>'<th>'+((ROT[c]||c).slice(0,45))+'</th>').join('') + '</tr></thead><tbody>';
+  linhas.forEach(l=>{ h += '<tr><td>'+l.unidade+'</td><td>'+l.mes_ano+'</td>' + chaves.map(c=>'<td>'+(l[c]??'')+'</td>').join('') + '</tr>'; });
+  container.innerHTML = h + '</tbody></table>';
+}
+
+// ================= VISÃO GERAL =================
+async function carregarVisao(){
+  const tipo = el('vis-tipo').value;
+  const q = new URLSearchParams({ tipo,
+    mi: el('vis-mi').value, ai: el('vis-ai').value, mf: el('vis-mf').value, af: el('vis-af').value,
+    unidades: UNIDADES.filter(u=>u.tipo===tipo).map(u=>u.id).join(','),
+    chaves: (DEFAULT_CHAVES[tipo]||[]).join(',') });
+  ultimaQuery = q.toString();
+  const camposTipo = await (await fetch('/api/campos?tipo='+tipo)).json();
+  camposTipo.forEach(c=>ROT[c.chave]=c.rotulo);
+  const d = await (await fetch('/api/dados?'+q)).json();
+  const chaves = (DEFAULT_CHAVES[tipo]||[]);
+  destruirGraficos();
+  graficos['visLinha'] = new Chart(el('gVisLinha'), { type:'line',
+    data:{ labels:d.periodo, datasets: chaves.map((c,i)=>({ label: ROT[c]||c, data: d.serie.map(s=>s[c]||0), borderColor: COR(i), backgroundColor:'transparent' })) },
+    options: optGrafico() });
+  const c0 = chaves[0];
+  graficos['visBarra'] = new Chart(el('gVisBarra'), { type:'bar',
+    data:{ labels:d.periodo, datasets: d.por_unidade.map((u,i)=>({ label:u.unidade,
+      data: d.periodo.map(p=> (d.por_unidade_mes[u.unidade]&&d.por_unidade_mes[u.unidade][p]) ? (d.por_unidade_mes[u.unidade][p][c0]||0) : 0),
+      backgroundColor: COR(i,0.65) })) },
+    options: optGrafico() });
+  el('vis-titulo-barra').textContent = 'Comparativo entre unidades — ' + (ROT[c0]||c0);
+  renderStatus(el('statusVisao'), d, nomesDoTipo(tipo));
+  renderTabela(el('tabelaVisao'), d, chaves, nomesDoTipo(tipo));
+}
+
+// ================= ANÁLISE COM FILTROS =================
+function montarUnidades(){
+  el('container-unidades').innerHTML = UNIDADES.map(u =>
+    '<div class="form-check"><input class="form-check-input chk-unidade" type="checkbox" value="'+u.id+'" id="unid-'+u.id+'" '+(marcadas.has(u.id)?'checked':'')+'>',
+    ).join('');
+  // reconstrói com labels corretos
+  el('container-unidades').innerHTML = UNIDADES.map(u =>
+    '<div class="form-check"><input class="form-check-input chk-unidade" type="checkbox" value="'+u.id+'" id="unid-'+u.id+'" '+(marcadas.has(u.id)?'checked':'')+'><label class="form-check-label small" for="unid-'+u.id+'">'+u.nome+' <span class="badge bg-secondary">'+u.tipo+'</span></label></div>').join('');
+  document.querySelectorAll('.chk-unidade').forEach(c=>{
+    c.addEventListener('change', ()=>{ c.checked ? marcadas.add(c.value) : marcadas.delete(c.value); });
+  });
+}
+async function carregarCamposAnalise(){
+  const tipo = el('sel-tipo').value;
+  CAMPOS_ANALISE = await (await fetch('/api/campos?tipo='+tipo)).json();
+  CAMPOS_ANALISE.forEach(c=>ROT[c.chave]=c.rotulo);
+  renderCamposAnalise();
+}
+let CAMPOS_ANALISE = [];
+function renderCamposAnalise(){
+  const busca = (el('busca-campo').value||'').toLowerCase();
+  const secoes = {};
+  CAMPOS_ANALISE.forEach(c=>{
+    if (busca && !(c.rotulo.toLowerCase().includes(busca)||c.secao.toLowerCase().includes(busca))) return;
+    (secoes[c.secao]=secoes[c.secao]||[]).push(c);
+  });
+  let html='';
+  for (const [sec, lista] of Object.entries(secoes)){
+    html += '<div class="mb-1 border-bottom pb-1"><strong class="small text-primary">'+sec+'</strong> '+
+      '<button type="button" class="btn btn-sm btn-link p-0 ms-1 btn-secao" data-sec="'+sec+'" data-m="1">Todas</button> | '+
+      '<button type="button" class="btn btn-sm btn-link p-0 btn-secao" data-sec="'+sec+'" data-m="0">Nenhuma</button></div>';
+    lista.forEach(c=>{ html += '<div class="form-check"><input class="form-check-input chk-campo" type="checkbox" value="'+c.chave+'" data-sec="'+sec+'" id="campo-'+c.chave+'"><label class="form-check-label small" for="campo-'+c.chave+'">'+c.rotulo+'</label></div>'; });
+  }
+  const cont = el('container-campos');
+  cont.innerHTML = html || '<span class="text-muted small">Nada encontrado.</span>';
+  cont.querySelectorAll('.btn-secao').forEach(b=>{
+    b.addEventListener('click', ()=>{ cont.querySelectorAll('.chk-campo[data-sec="'+b.dataset.sec+'"]').forEach(x=>x.checked = b.dataset.m==='1'); });
+  });
+}
+function chavesSelecionadas(){ return Array.from(document.querySelectorAll('.chk-campo:checked')).map(i=>i.value); }
+
+async function aplicarAnalise(){
+  const tipo = el('sel-tipo').value;
+  const chaves = chavesSelecionadas();
+  if (!chaves.length || !marcadas.size){ alert('⚠️ Selecione ao menos 1 unidade e 1 indicador.'); return; }
+  const q = new URLSearchParams({ tipo,
+    mi: el('sel-mi').value, ai: el('sel-ai').value, mf: el('sel-mf').value, af: el('sel-af').value,
+    unidades: Array.from(marcadas).join(','), chaves: chaves.join(',') });
+  ultimaQuery = q.toString();
+  const d = await (await fetch('/api/dados?'+q)).json();
+  destruirGraficos();
+  const area = el('area-graficos'); area.innerHTML='';
+  const tipoG = el('sel-grafico').value;
+  chaves.forEach(chave=>{
+    const col = document.createElement('div'); col.className='col-md-6 mb-3';
+    col.innerHTML = '<div class="card"><div class="card-body"><h6 class="text-primary">'+(ROT[chave]||chave)+'</h6><div class="caixa-grafico"><canvas id="g-'+chave+'"></canvas></div></div></div>';
+    area.appendChild(col);
+    let cfg;
+    if (tipoG==='pie'){
+      const un = d.por_unidade.filter(u=>(u[chave]||0)!==0);
+      cfg = { type:'pie', data:{ labels: un.map(u=>u.unidade), datasets:[{ data: un.map(u=>u[chave]||0), backgroundColor: un.map((_,i)=>COR(i,0.7)) }] }, options: optGrafico() };
+    } else if (tipoG==='bar'){
+      cfg = { type:'bar', data:{ labels: d.periodo, datasets: d.por_unidade.map((u,i)=>({ label:u.unidade,
+        data: d.periodo.map(p=> (d.por_unidade_mes[u.unidade]&&d.por_unidade_mes[u.unidade][p]) ? (d.por_unidade_mes[u.unidade][p][chave]||0) : 0),
+        backgroundColor: COR(i,0.65) })) }, options: optGrafico() };
+    } else {
+      cfg = { type:'line', data:{ labels: d.periodo, datasets:[{ label: ROT[chave]||chave, data: d.serie.map(s=>s[chave]||0), borderColor:'blue', backgroundColor:'rgba(0,0,255,.12)', fill:true }] }, options: optGrafico() };
+    }
+    graficos['g-'+chave] = new Chart(el('g-'+chave), cfg);
+  });
+  renderStatus(el('statusAnalise'), d, nomesDoTipo(tipo));
+  renderTabela(el('tabelaAnalise'), d, chaves, nomesDoTipo(tipo));
+}
+
+// ================= Inicialização =================
+function preencherMeses(selMi, selMf, mi, mf){
+  const opts = MESES.map((m,i)=>'<option value="'+(i+1)+'">'+m+'</option>').join('');
+  selMi.innerHTML = opts; selMf.innerHTML = opts;
+  selMi.value = mi; selMf.value = mf;
+}
+preencherMeses(el('vis-mi'), el('vis-mf'), 1, 12);
+preencherMeses(el('sel-mi'), el('sel-mf'), 1, 12);
+el('print-data').textContent = new Date().toLocaleString('pt-BR');
+
+el('btn-vis-atualizar').onclick = carregarVisao;
+el('btn-vis-excel').onclick = ()=>{ window.location.href = '/exportar?' + ultimaQuery; };
+el('btn-gerar').onclick = aplicarAnalise;
+el('sel-tipo').addEventListener('change', ()=>{ montarUnidades(); carregarCamposAnalise(); });
+el('busca-campo').addEventListener('input', renderCamposAnalise);
+el('btn-todas-basica').onclick = ()=>{ marcadas = new Set(UNIDADES.filter(u=>u.tipo==='cras').map(u=>u.id)); montarUnidades(); };
+el('btn-todas-especial').onclick = ()=>{ marcadas = new Set(UNIDADES.filter(u=>u.tipo!=='cras').map(u=>u.id)); montarUnidades(); };
+el('btn-limpar-unidades').onclick = ()=>{ marcadas = new Set(); montarUnidades(); };
+el('btn-excel').onclick = ()=>{ window.location.href = '/exportar?' + ultimaQuery; };
+document.querySelectorAll('.btn-filtro-salvo').forEach(b=> b.addEventListener('click', ()=>{ location.search = '?' + b.dataset.params; }));
+const btnSalvar = el('btn-salvar');
+if (btnSalvar) btnSalvar.onclick = ()=>{
+  const nome = prompt('Nome do filtro:'); if(!nome) return;
+  const f = document.createElement('form'); f.method='POST'; f.action='/filtros/salvar';
+  f.innerHTML = '<input type="hidden" name="nome" value="'+nome+'"><input type="hidden" name="tipo" value="'+el('sel-tipo').value+'"><input type="hidden" name="parametros" value="'+ultimaQuery+'">';
+  document.body.appendChild(f); f.submit();
+};
+document.querySelectorAll('#abasDashboard button[data-bs-toggle="tab"]').forEach(b=>{
+  b.addEventListener('shown.bs.tab', ()=> Object.values(graficos).forEach(c=>c.resize()));
+});
+
+montarUnidades();
+carregarCamposAnalise();
+carregarVisao();
+</script>
+{% endblock %}
