@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 """Camada de acesso ao Supabase (Postgres) + utilitários de backup."""
-import os, sqlite3
+import os, sqlite3, json, tempfile
+import datetime as _dt
+import decimal as _dec
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
@@ -35,6 +37,18 @@ def get_conn():
 def cur_dict(conn):
     return conn.cursor(cursor_factory=RealDictCursor)
 
+def _sqlite_safe(v):
+    """Converte tipos do Postgres para tipos que o SQLite aceita."""
+    if isinstance(v, _dt.datetime):
+        return v.strftime("%Y-%m-%d %H:%M:%S")
+    if isinstance(v, (_dt.date, _dt.time)):
+        return v.isoformat()
+    if isinstance(v, _dec.Decimal):
+        return float(v)
+    if isinstance(v, (dict, list)):
+        return json.dumps(v, ensure_ascii=False)
+    return v
+
 def unidade_id(conn, nome, tipo):
     cur = cur_dict(conn)
     cur.execute("INSERT INTO unidades (nome, tipo) VALUES (%s,%s) ON CONFLICT (nome,tipo) DO NOTHING RETURNING id", (nome, tipo))
@@ -55,37 +69,50 @@ def upsert_relatorio(conn, unidade_nome, tipo, mes, ano, email, dados_json):
     return uid
 
 def exportar_sqlite_bytes():
-    """Snapshot .db (SQLite) com todo o conteúdo do Supabase (botão ⬇️ Backup)."""
-    tmp = "backup_temp.db"
-    if os.path.exists(tmp): os.remove(tmp)
-    sq = sqlite3.connect(tmp); sq.executescript(SQLITE_SCHEMA)
-    conn = get_conn(); cur = cur_dict(conn)
-    for t, cols in TABELAS_COLS.items():
-        for r in cur.execute(f"SELECT {', '.join(cols)} FROM {t}").fetchall():
-            sq.execute(f"INSERT INTO {t} ({', '.join(cols)}) VALUES ({', '.join('?'*len(cols))})", [r[c] for c in cols])
-    sq.commit(); sq.close(); conn.close()
-    with open(tmp, "rb") as f: data = f.read()
-    os.remove(tmp)
+    """Gera um snapshot .db (SQLite) com todo o conteúdo do Supabase (botão ⬇️ Backup)."""
+    fd, tmp = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    try:
+        sq = sqlite3.connect(tmp)
+        sq.executescript(SQLITE_SCHEMA)
+        conn = get_conn(); cur = cur_dict(conn)
+        for t, cols in TABELAS_COLS.items():
+            cur.execute(f"SELECT {', '.join(cols)} FROM {t}")
+            for r in cur.fetchall():
+                sq.execute(f"INSERT INTO {t} ({', '.join(cols)}) VALUES ({', '.join('?' * len(cols))})",
+                           [_sqlite_safe(r[c]) for c in cols])
+        sq.commit(); sq.close(); conn.close()
+        with open(tmp, "rb") as f:
+            data = f.read()
+    finally:
+        if os.path.exists(tmp): os.remove(tmp)
     return data
 
 def importar_sqlite_bytes(content: bytes):
     """Substitui todo o conteúdo do Supabase pelo .db enviado (botão ⬆️ Restaurar)."""
-    tmp = "upload_temp.db"
-    with open(tmp, "wb") as f: f.write(content)
-    sq = sqlite3.connect(tmp)
-    tabs = [r[0] for r in sq.execute("SELECT name FROM sqlite_master WHERE type='table'")]
-    if "relatorios" not in tabs or "unidades" not in tabs:
-        os.remove(tmp); return False
-    conn = get_conn(); cur = conn.cursor()
-    cur.execute("TRUNCATE TABLE unidades, usuarios, usuario_unidades, campos_config, relatorios, filtros_salvos RESTART IDENTITY CASCADE")
-    for t, cols in TABELAS_COLS.items():
-        if t not in tabs: continue
-        info = [r[1] for r in sq.execute(f"PRAGMA table_info({t})")]
-        use = [c for c in cols if c in info]
-        rows = sq.execute(f"SELECT {', '.join(use)} FROM {t}").fetchall()
-        if rows:
-            cur.executemany(f"INSERT INTO {t} ({', '.join(use)}) VALUES ({','.join(['%s']*len(use))})", rows)
-    for t in TABELAS_COLS:
-        cur.execute(f"SELECT setval(pg_get_serial_sequence('{t}','id'), COALESCE((SELECT MAX(id) FROM {t}),1))")
-    conn.commit(); conn.close(); sq.close(); os.remove(tmp)
-    return True
+    fd, tmp = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+    ok = False
+    try:
+        with open(tmp, "wb") as f:
+            f.write(content)
+        sq = sqlite3.connect(tmp)
+        tabs = [r[0] for r in sq.execute("SELECT name FROM sqlite_master WHERE type='table'")]
+        if "relatorios" not in tabs or "unidades" not in tabs:
+            return False
+        conn = get_conn(); cur = conn.cursor()
+        cur.execute("TRUNCATE TABLE unidades, usuarios, usuario_unidades, campos_config, relatorios, filtros_salvos RESTART IDENTITY CASCADE")
+        for t, cols in TABELAS_COLS.items():
+            if t not in tabs: continue
+            info = [r[1] for r in sq.execute(f"PRAGMA table_info({t})")]
+            use = [c for c in cols if c in info]
+            rows = sq.execute(f"SELECT {', '.join(use)} FROM {t}").fetchall()
+            if rows:
+                cur.executemany(f"INSERT INTO {t} ({', '.join(use)}) VALUES ({','.join(['%s'] * len(use))})", rows)
+        for t in TABELAS_COLS:
+            cur.execute(f"SELECT setval(pg_get_serial_sequence('{t}','id'), COALESCE((SELECT MAX(id) FROM {t}),1))")
+        conn.commit(); conn.close(); sq.close()
+        ok = True
+    finally:
+        if os.path.exists(tmp): os.remove(tmp)
+    return ok
