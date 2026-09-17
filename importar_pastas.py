@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
-"""IMPORTADOR POR PASTA (v3 — grava direto no Supabase)."""
+# -*- coding: utf-8 -*-
+r"""IMPORTADOR POR PASTA (v4 — Supabase + aba inteligente + flag --gravar).
+Uso:
+  python importar_pastas.py             -> modo diagnóstico (NÃO grava)
+  python importar_pastas.py --gravar    -> grava no Supabase
+  python importar_pastas.py --gravar "D:\outro\caminho"
+"""
 import json, re, os, sys, unicodedata
 from datetime import datetime
 from openpyxl import load_workbook
 import campos, ajustes
 import db as DB
 
-DRY_RUN = True
 RAIZ_PADRAO = r"D:\sistema_pma\dados_importacao"
 EXTENSOES = (".xlsx", ".xlsm", ".xlsb")
 
@@ -34,7 +39,6 @@ def norm(t):
     t = "".join(c for c in t if not unicodedata.combining(c))
     t = re.sub(r"[^a-z0-9]+", " ", t).strip()
     t = re.sub(r"\s+", " ", t)
-    t = re.sub(r"institu+icao", "instituicao", t)
     return t
 
 def norm_pasta(nome):
@@ -138,10 +142,25 @@ def ler_formulario(ws, tipo):
         else: nao.append(rot[:60])
     return dados, nao
 
+def processar_arquivo(caminho, arq, tipo):
+    """Testa todas as abas e retorna a que casar mais campos."""
+    wb = load_workbook(caminho, data_only=True)
+    melhor = None
+    for nome_aba in wb.sheetnames:
+        ws = wb[nome_aba]
+        mes, ano = detectar_mes_ano(arq, ws)
+        if not mes: continue
+        dados, nao = ler_formulario(ws, tipo)
+        if melhor is None or len(dados) > len(melhor[0]):
+            melhor = (dados, nao, mes, ano, nome_aba)
+    return melhor
+
 def main():
-    raiz = sys.argv[1] if len(sys.argv) > 1 else RAIZ_PADRAO
+    gravar = "--gravar" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    raiz = args[0] if args else RAIZ_PADRAO
     print(f"📂 Raiz: {raiz}")
-    print("🔍 MODO DIAGNÓSTICO — nada será gravado\n" if DRY_RUN else "💾 MODO GRAVAÇÃO (Supabase)\n")
+    print("🔍 MODO DIAGNÓSTICO — nada será gravado\n" if not gravar else "💾 MODO GRAVAÇÃO (Supabase)\n")
     linhas, prontos, pendencias, vistos = [], [], [], set()
 
     for nome_pasta in sorted(os.listdir(raiz)):
@@ -159,25 +178,22 @@ def main():
             if not arq.lower().endswith(EXTENSOES): continue
             caminho = os.path.join(caminho_pasta, arq)
             try:
-                wb = load_workbook(caminho, data_only=True)
-                ws = wb[wb.sheetnames[0]]
+                melhor = processar_arquivo(caminho, arq, tipo)
             except Exception as e:
                 pendencias.append(f"ERRO AO ABRIR: {nome_pasta}/{arq} ({e})"); continue
-
-            mes, ano = detectar_mes_ano(arq, ws)
-            if not mes or not ano:
+            if not melhor:
                 pendencias.append(f"MÊS/ANO NÃO DETECTADO: {nome_pasta}/{arq}"); continue
+            dados, nao, mes, ano, aba = melhor
             dup = (unidade, mes, ano)
             if dup in vistos:
                 pendencias.append(f"DUPLICADO: {nome_pasta}/{arq}"); continue
             vistos.add(dup)
 
-            dados, nao = ler_formulario(ws, tipo)
             total = sum(len(l) for _, l in campos_do_tipo(tipo))
             status = "✅" if len(dados) >= 5 else "⚠️"
             if len(dados) < 5:
                 pendencias.append(f"POUCOS CAMPOS CASADOS: {nome_pasta}/{arq} ({len(dados)})")
-            linhas.append(f"{status} {nome_pasta} / {arq}")
+            linhas.append(f"{status} {nome_pasta} / {arq}  [aba: {aba}]")
             linhas.append(f"   unidade={unidade} | tipo={tipo} | mês={mes} | ano={ano} | campos casados={len(dados)}/{total}")
             if nao: linhas.append(f"   não casados ({len(nao)}): {', '.join(nao[:6])}")
             prontos.append((unidade, tipo, mes, ano, dados))
@@ -190,13 +206,15 @@ def main():
         f.write(rel + resumo)
     print("\n💾 Relatório completo em relatorio_importacao.txt")
 
-    if not DRY_RUN:
+    if gravar and prontos:
         conn = DB.get_conn()
         for unidade, tipo, mes, ano, dados in prontos:
             DB.upsert_relatorio(conn, unidade, tipo, mes, ano, "importacao_pastas",
                                 json.dumps(dados, ensure_ascii=False))
         conn.close()
         print(f"💾 {len(prontos)} registros gravados no Supabase!")
+    elif gravar:
+        print("⚠️ Nada para gravar.")
 
 if __name__ == '__main__':
     main()

@@ -5,9 +5,10 @@ from collections import defaultdict
 import db as DB
 
 conn = DB.get_conn(); cur = DB.cur_dict(conn)
-rows = cur.execute("""SELECT u.nome, u.tipo, r.mes, r.ano, r.dados
-                      FROM relatorios r JOIN unidades u ON u.id=r.unidade_id
-                      ORDER BY u.nome, r.ano, r.mes""").fetchall()
+cur.execute("""SELECT u.nome, u.tipo, r.mes, r.ano, r.dados
+               FROM relatorios r JOIN unidades u ON u.id=r.unidade_id
+               ORDER BY u.nome, r.ano, r.mes""")
+rows = cur.fetchall()
 conn.close()
 
 print(f"📊 TOTAL DE REGISTROS NO BANCO: {len(rows)}\n")
